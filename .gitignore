@@ -1,29 +1,31 @@
-*.pro.user
-*.pro.user.*
+# 构建产物
+release/
+debug/
 build/
 *.o
 *.obj
-*.a
-*.lib
-*.dll
 *.exe
-*.so
-*.dylib
-*.pdb
-*.idb
-*.ilk
-*.suo
-*.sdf
-*.opensdf
-*.vcxproj.user
-*.qbs
-*.qbs.user
-*.qbs.user.*
-Makefile
-Makefile.Debug
-Makefile.Release
-*.qm
-.DS_Store
-Thumbs.db
+
+# Qt 生成文件
+moc_*.cpp
+moc_*.h
+qrc_*.cpp
+ui_*.h
+Makefile*
+.qmake.stash
+.qmake.conf
+
+# Qt Creator 用户配置
+*.pro.user
+*.pro.user.*
+
+# 数据库文件
 *.db
-*.csv
+
+# 日志
+logs/
+
+# 临时文件
+*.autosave
+*.tmp
+*.rc

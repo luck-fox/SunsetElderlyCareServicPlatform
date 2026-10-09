@@ -7,7 +7,6 @@ ThreadWorker::ThreadWorker(QObject *parent) : QObject(parent) {}
 void ThreadWorker::setHealthDataManager(HealthDataManager *manager)
 {
     m_healthMgr = manager;
-    m_useExternalManager = true;
 }
 
 void ThreadWorker::doParseAndSave(const QByteArray &data)
@@ -54,11 +53,10 @@ void ThreadWorker::doParseAndSave(const QByteArray &data)
     }
 
     bool saveOk = false;
-    if (m_useExternalManager && m_healthMgr) {
+    if (m_healthMgr) {
         saveOk = m_healthMgr->insertHealthData(healthData);
     } else {
-        HealthDataManager manager;
-        saveOk = manager.insertHealthData(healthData);
+        qWarning() << "HealthDataManager 未设置，数据无法保存";
     }
 
     emit dataParsed(healthData.elderId, healthData);

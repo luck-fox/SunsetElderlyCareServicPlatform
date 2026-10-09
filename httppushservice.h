@@ -8,6 +8,8 @@
 #include <QTimer>
 #include <QUrl>
 #include <QJsonObject>
+#include <QHash>
+#include <QDateTime>
 #include "healthdatamanager.h"
 
 struct PushRequest {
@@ -43,6 +45,10 @@ private:
     QTimer *m_processTimer;
     bool m_isProcessing = false;
     QString m_baseUrl = "http://127.0.0.1:8080";
+
+    // 告警去重:同一老人同一类异常在 ALERT_DEDUP_SECONDS 秒内不重复推送
+    QHash<QString, QDateTime> m_lastAlertTime;
+    static const int ALERT_DEDUP_SECONDS = 300; // 5 分钟
 };
 
 #endif

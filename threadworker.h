@@ -26,7 +26,6 @@ private:
     bool validateData(const HealthData &data, QStringList &errors);
     
     HealthDataManager *m_healthMgr = nullptr;
-    bool m_useExternalManager = false;
 };
 
 #endif

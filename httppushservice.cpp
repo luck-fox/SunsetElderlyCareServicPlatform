@@ -93,6 +93,16 @@ void HttpPushService::pushAlert(const QString &familyPhone, const QString &elder
     if (data.battery < 20) abnormalList.append("手环电量低");
     if (data.pressureLevel >= PRESSURE_HIGH) abnormalList.append("高压状态");
 
+    // 告警去重:同一老人同一类异常在 5 分钟内不重复推送
+    QDateTime now = QDateTime::currentDateTime();
+    QString alertKey = data.elderId + ":" + abnormalList.join("|");
+    if (m_lastAlertTime.contains(alertKey)
+        && m_lastAlertTime.value(alertKey).secsTo(now) < ALERT_DEDUP_SECONDS) {
+        qDebug() << "[HTTP推送] 告警去重，5分钟内不重复推送，key：" << alertKey;
+        return;
+    }
+    m_lastAlertTime[alertKey] = now;
+
     jsonObj["abnormal_info"] = abnormalList.join("、");
     jsonObj["heart_rate"] = data.heartRate;
     jsonObj["blood_pressure"] = QString("%1/%2").arg(data.systolicPressure).arg(data.diastolicPressure);

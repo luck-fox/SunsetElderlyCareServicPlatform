@@ -1,10 +1,14 @@
 #include "mainwindow.h"
+#include "logger.h"
 #include <QApplication>
 #include <QFont>
 #include <QDebug>
 
 int main(int argc, char *argv[])
 {
+    // 最先安装日志处理器，之后所有 qDebug/qInfo/qWarning/qCritical 均会落盘
+    Logger::installMessageHandler();
+
     qDebug() << "程序启动开始...";
     QApplication a(argc, argv);
 

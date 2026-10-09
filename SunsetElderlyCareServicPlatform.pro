@@ -15,14 +15,16 @@ SOURCES += main.cpp \
            httppushservice.cpp \
            mainwindow.cpp \
            serialdevice.cpp \
-           threadworker.cpp
+           threadworker.cpp \
+           logger.cpp
 
 # 头文件
 HEADERS += mainwindow.h \
            healthdatamanager.h \
            httppushservice.h \
            serialdevice.h \
-           threadworker.h
+           threadworker.h \
+           logger.h
 
 # 中文适配
 QMAKE_CXXFLAGS += -utf-8

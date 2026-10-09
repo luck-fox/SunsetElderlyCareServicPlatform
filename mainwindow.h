@@ -9,6 +9,7 @@
 #include <QComboBox>
 #include <QPushButton>
 #include <QStringList>
+#include <QSettings>
 #include "healthdatamanager.h"
 #include "serialdevice.h"
 #include "httppushservice.h"
@@ -62,6 +63,7 @@ private:
     void setupMenuBar();
     void updateDataDisplay(const HealthData &data);
     void updateStatisticsDisplay();
+    void populateElderCombo();
     
     QLabel *m_labelHr;
     QLabel *m_labelBp;

@@ -27,6 +27,8 @@
 #include <QMouseEvent>
 #include <QLegend>
 #include <QAbstractSeries>
+#include <QSettings>
+#include <QCoreApplication>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -79,6 +81,10 @@ MainWindow::MainWindow(QWidget *parent)
     m_serialDevice = new SerialDevice(this);
     m_httpPush = new HttpPushService(this);
 
+    // 从 config.ini 读取服务器地址，文件不存在或键缺失时用默认值
+    QSettings settings(QCoreApplication::applicationDirPath() + "/config.ini", QSettings::IniFormat);
+    m_httpPush->setServerUrl(settings.value("Server/url", "http://127.0.0.1:8080").toString());
+
     m_serialDevice->setHealthDataManager(m_healthMgr);
 
     qDebug() << "设置UI...";
@@ -119,13 +125,11 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_chartUpdateTimer, &QTimer::timeout, this, &MainWindow::updateCharts);
     m_chartUpdateTimer->start(5000);
 
-    QStringList elders = m_healthMgr->getElderList();
-    if (elders.isEmpty()) {
-        m_currentElderId = "LAO001";
-        m_comboElder->addItem("LAO001");
+    populateElderCombo();
+    if (m_comboElder->count() > 0) {
+        m_currentElderId = m_comboElder->itemData(0).toString();
     } else {
-        m_currentElderId = elders.first();
-        m_comboElder->addItems(elders);
+        m_currentElderId = "LAO001";
     }
 
     QTimer::singleShot(1000, this, [=]() {
@@ -141,9 +145,9 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
-    m_testDataTimer->stop();
-    m_chartUpdateTimer->stop();
-    m_serialDevice->closeSerialPort();
+    if (m_testDataTimer) m_testDataTimer->stop();
+    if (m_chartUpdateTimer) m_chartUpdateTimer->stop();
+    if (m_serialDevice) m_serialDevice->closeSerialPort();
 }
 
 void MainWindow::setupUI()
@@ -163,7 +167,7 @@ void MainWindow::setupUI()
     controlLayout->addWidget(labelElder);
     
     m_comboElder = new QComboBox(controlBar);
-    m_comboElder->setMinimumWidth(150);
+    m_comboElder->setMinimumWidth(200);
     m_comboElder->setStyleSheet(
         "QComboBox {"
         "    padding: 5px;"
@@ -287,8 +291,8 @@ void MainWindow::setupUI()
     mainLayout->addWidget(controlBar);
 
     connect(m_comboElder, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [=](int index) {
-        if (m_comboElder) {
-            onElderChanged(m_comboElder->itemText(index));
+        if (m_comboElder && index >= 0) {
+            onElderChanged(m_comboElder->itemData(index).toString());
         }
     });
     connect(m_btnToggleTest, &QPushButton::clicked, this, &MainWindow::onToggleTestData);
@@ -429,10 +433,6 @@ void MainWindow::setupMenuBar()
     QMenu *viewMenu = menuBar()->addMenu("查看");
     QAction *statsAction = viewMenu->addAction("查看统计");
     connect(statsAction, &QAction::triggered, this, &MainWindow::onViewStatistics);
-
-    QMenu *toolMenu = menuBar()->addMenu("工具");
-    QAction *toggleAction = toolMenu->addAction("切换模拟数据");
-    connect(toggleAction, &QAction::triggered, this, &MainWindow::onToggleTestData);
 }
 
 void MainWindow::onHealthDataReceived(const QString &elderId, const HealthData &data)
@@ -445,13 +445,17 @@ void MainWindow::onHealthDataReceived(const QString &elderId, const HealthData &
     updateDataDisplay(data);
     m_healthMgr->insertHealthData(data);
 
+    ElderInfo info = m_healthMgr->getElderInfo(data.elderId);
+    QString familyPhone = info.emergencyPhone.isEmpty() ? info.phone : info.emergencyPhone;
+    QString elderName = info.name.isEmpty() ? data.elderId : info.name;
+
     if (m_healthMgr->checkAbnormalData(data)) {
         if (m_httpPush) {
-            m_httpPush->pushAlert("13800138000", "张大爷", data);
+            m_httpPush->pushAlert(familyPhone, elderName, data);
         }
     } else {
         if (m_httpPush) {
-            m_httpPush->pushReport("13800138000", "张大爷", data);
+            m_httpPush->pushReport(familyPhone, elderName, data);
         }
     }
 }
@@ -733,8 +737,27 @@ void MainWindow::onSOSReceived(const QString &elderId)
                           QString("收到老人 %1 的SOS求助信号！\n已推送至家属端。").arg(elderId),
                           QMessageBox::Ok);
 
-    if (m_httpPush) {
-        m_httpPush->pushSOS("13800138000", "张大爷", elderId);
+    if (m_httpPush && m_healthMgr) {
+        ElderInfo info = m_healthMgr->getElderInfo(elderId);
+        QString familyPhone = info.emergencyPhone.isEmpty() ? info.phone : info.emergencyPhone;
+        QString elderName = info.name.isEmpty() ? elderId : info.name;
+        m_httpPush->pushSOS(familyPhone, elderName, elderId);
+    }
+}
+
+void MainWindow::populateElderCombo()
+{
+    m_comboElder->clear();
+    QVector<ElderInfo> elders = m_healthMgr->getAllElders();
+    if (elders.isEmpty()) {
+        m_comboElder->addItem("LAO001", "LAO001");
+    } else {
+        for (const ElderInfo &info : elders) {
+            QString display = info.name.isEmpty()
+                ? info.elderId
+                : QString("%1 - %2").arg(info.elderId, info.name);
+            m_comboElder->addItem(display, info.elderId);
+        }
     }
 }
 
@@ -925,12 +948,9 @@ void MainWindow::onAddElder()
         
         if (m_healthMgr->addElder(info)) {
             QMessageBox::information(this, "添加成功", QString("老人 %1（%2）已成功添加！").arg(name).arg(elderId));
-            
-            m_comboElder->clear();
-            QStringList elders = m_healthMgr->getElderList();
-            m_comboElder->addItems(elders);
-            
-            int index = m_comboElder->findText(elderId);
+
+            populateElderCombo();
+            int index = m_comboElder->findData(elderId);
             if (index >= 0) {
                 m_comboElder->setCurrentIndex(index);
             }
@@ -1002,10 +1022,8 @@ void MainWindow::onManageElders()
             if (m_healthMgr->removeElder(elderId)) {
                 QMessageBox::information(&dialog, "删除成功", QString("老人 %1 已删除！").arg(name));
                 table->removeRow(row);
-                
-                m_comboElder->clear();
-                QStringList elders = m_healthMgr->getElderList();
-                m_comboElder->addItems(elders);
+
+                populateElderCombo();
             } else {
                 QMessageBox::warning(&dialog, "删除失败", "删除老人信息失败！");
             }

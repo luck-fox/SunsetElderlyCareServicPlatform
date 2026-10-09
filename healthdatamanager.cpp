@@ -3,11 +3,10 @@
 #include <QDebug>
 #include <QFile>
 #include <QTextStream>
-#include <QMessageBox>
 #include <QSqlDriver>
 #include <QCoreApplication>
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-#include <QStringEncoder>
+#include <QStringConverter>
 #endif
 
 HealthDataManager::HealthDataManager(QObject *parent) : QObject(parent)
